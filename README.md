@@ -2,11 +2,11 @@
 
 面向 **Vue 2 / Vue 3 / React Hooks** 的前端 AI 技能集，采用 Agent Skills 目录格式。三个 skill 分别负责修改、评审和溯源，也能按用户目标衔接执行。
 
-| Skill | 交付结果 | 典型请求 |
+| Skill（中文显示名称） | 交付结果 | 典型请求 |
 | --- | --- | --- |
-| [frontend-code-modifier](frontend-code-modifier/SKILL.md) | 完成修改，解释原因，报告实际验证结果 | “帮我修这个”“改了没生效”“改 A 影响 B” |
-| [frontend-code-review](frontend-code-review/SKILL.md) | 按严重程度排序、有触发条件与证据的问题清单 | “review 一下”“这段能不能合并”“找回归” |
-| [frontend-code-tracer](frontend-code-tracer/SKILL.md) | 解释来源、路径、条件与覆盖关系，默认只读 | “这个值从哪来”“为什么不是接口”“怎么实现的” |
+| [修改web代码](修改web代码/SKILL.md) | 完成修改，解释原因，报告实际验证结果 | “帮我修这个”“改了没生效”“改 A 影响 B” |
+| [评审web代码](评审web代码/SKILL.md) | 按严重程度排序、有触发条件与证据的问题清单 | “review 一下”“这段能不能合并”“找回归” |
+| [溯源web代码](溯源web代码/SKILL.md) | 解释来源、路径、条件与覆盖关系，默认只读 | “这个值从哪来”“为什么不是接口”“怎么实现的” |
 
 共同原则：**按风险选择深度，关键结论能核查，静态推导与运行观察分开报告**。简单问题直接回答或修改；缺少上下文时，先完成能独立确认的部分。
 
@@ -28,16 +28,19 @@ coderSkills/
 ├── README.md
 ├── EVALUATION.md                 # 行为评估方法与记录要求
 ├── reports/                      # 已执行抽样的输入版本、输出与判定
-├── frontend-code-modifier/
+├── 修改web代码/
 │   ├── SKILL.md
+│   ├── agents/openai.yaml        # Codex 中文显示名称
 │   ├── references/change-checks.md
 │   └── evals/evals.json
-├── frontend-code-review/
+├── 评审web代码/
 │   ├── SKILL.md
+│   ├── agents/openai.yaml
 │   ├── references/review-checks.md
 │   └── evals/evals.json
-├── frontend-code-tracer/
+├── 溯源web代码/
 │   ├── SKILL.md
+│   ├── agents/openai.yaml
 │   ├── references/tracing-checks.md
 │   └── evals/evals.json
 └── scripts/
@@ -49,7 +52,9 @@ coderSkills/
 
 ## 安装与任务衔接
 
-将需要的 **整个 skill 目录** 放入宿主配置的技能目录，保留 `SKILL.md` 与 `references/` 的相对路径。`evals/` 用于维护评估，建议一起保留。三个 skill 可以独立安装，不依赖仓库根目录脚本、其他 skill 或特定 MCP。
+将需要的 **整个 skill 目录** 放入宿主配置的技能目录，保留 `SKILL.md`、`agents/` 与 `references/` 的相对路径。`evals/` 用于维护评估，建议一起保留。三个 skill 可以独立安装，不依赖仓库根目录脚本、其他 skill 或特定 MCP。
+
+三个 skill 的目录名、`SKILL.md` 中的 `name` 和 `agents/openai.yaml` 中的 `interface.display_name` 统一使用中文名称：“修改web代码”“评审web代码”“溯源web代码”。可使用 `$修改web代码`、`$评审web代码`、`$溯源web代码` 显式调用。升级安装时移除旧版英文名称目录，再复制中文名称目录；若界面未刷新，重启 Codex 后查看技能列表。
 
 `SKILL.md` 的 YAML frontmatter 提供 `name` 和 `description`；宿主通常用它判断何时加载正文。实际自动发现路径、是否需重新加载及工具权限由宿主决定。引用资料只在相关任务中读取。
 
@@ -64,7 +69,7 @@ coderSkills/
 
 ```bash
 ./scripts/show-skill.sh                       # 列出可用 skill
-./scripts/show-skill.sh frontend-code-review  # 打印主文件
+./scripts/show-skill.sh 评审web代码  # 打印主文件
 ```
 
 该命令不展开引用文件。粘贴到聊天工具时，按任务补充被引用的相关资料，或让工具可以访问完整 skill 目录。
@@ -78,12 +83,12 @@ coderSkills/
 ./scripts/show-lines.sh src/UserList.vue 40 52      # 输出带行号的指定范围
 ./scripts/show-lines.sh src/UserList.vue 40         # 从第 40 行到末尾
 python3 scripts/validate-skills.py                            # 校验整个仓库的 skill
-python3 scripts/validate-skills.py frontend-code-review       # 校验单个 skill
+python3 scripts/validate-skills.py 评审web代码       # 校验单个 skill
 python3 scripts/validate-skills.py --manifest                 # 输出各文件摘要，供评测记录版本
 python3 scripts/validate-skills.py --report reports/xxx.json  # 校验评测报告并比对版本摘要
 ```
 
-Shell 脚本使用 Bash；搜索优先使用 `rg`，不可用时回退 `grep`。`find-symbol.sh` 的退出码是：`0` 找到匹配，`1` 没有匹配，`2` 参数或检索错误。与旧版相比，默认搜索改为字面量且不再吞掉错误；需要正则的调用应增加 `--regex`。
+Shell 脚本使用 Bash；`show-skill.sh` 使用 Python 3 校验中文名称；搜索优先使用 `rg`，不可用时回退 `grep`。`find-symbol.sh` 的退出码是：`0` 找到匹配，`1` 没有匹配，`2` 参数或检索错误。与旧版相比，默认搜索改为字面量且不再吞掉错误；需要正则的调用应增加 `--regex`。
 
 结构校验器检查仓库约定的 frontmatter 子集（含 `version` 语义化版本）、名称、正文长度、skill 内相对文件链接及评估数据格式。`--manifest` 以稳定顺序输出各 skill 文件的 SHA-256，供评测报告记录所测版本；`--report` 反过来校验报告，并重新计算摘要——skill 内容一变、报告记录的版本即告失效，需要重跑或显式标注过期。
 

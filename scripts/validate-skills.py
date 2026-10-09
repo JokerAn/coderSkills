@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 
-NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+NAME = re.compile(r"[a-z0-9\u4e00-\u9fff]+(?:-[a-z0-9\u4e00-\u9fff]+)*\Z")
 VERSION = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
                      r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z")
 DEFINITION = re.compile(r"(?m)^ {0,3}\[([^\]\n]+)\]:[ \t]*(.*)$")
@@ -233,7 +233,7 @@ class Validator:
                 self.error(path, "缺少元数据字段：" + required)
         name = fields.get("name")
         if name is not None and (not NAME.fullmatch(name) or len(name) > 64 or name != skill_name):
-            self.error(path, "name 必须与目录名相同，至多 64 字符，仅含小写字母/数字及单个分隔连字符")
+            self.error(path, "name 必须与目录名相同，至多 64 字符，仅含中文汉字/小写字母/数字及单个分隔连字符")
         description = fields.get("description")
         if description is not None and len(description) > 1024:
             self.error(path, "description 不能超过 1024 字符")
@@ -379,7 +379,7 @@ class Validator:
 
     def skill(self, root):
         if not NAME.fullmatch(root.name) or len(root.name) > 64:
-            self.error(root, "skill 目录名不符合小写字母/数字及单个连字符的命名规范（最多 64 字符）")
+            self.error(root, "skill 目录名不符合中文汉字/小写字母/数字及单个连字符的命名规范（最多 64 字符）")
         main = root / "SKILL.md"
         eval_file = root / "evals" / "evals.json"
         try:

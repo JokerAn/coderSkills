@@ -7,7 +7,15 @@ usage() {
   printf '用法: %s [skill-name]\n' "$0"
 }
 valid_name() {
-  [[ "$1" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ && ${#1} -le 64 ]]
+  python3 - "$root" "$1" <<'PY'
+import runpy
+import sys
+from pathlib import Path
+
+rules = runpy.run_path(str(Path(sys.argv[1]) / "scripts" / "validate-skills.py"))
+name = sys.argv[2]
+sys.exit(0 if len(name) <= 64 and rules["NAME"].fullmatch(name) else 1)
+PY
 }
 if [[ "${1:-}" == '-h' || "${1:-}" == '--help' ]]; then
   usage
@@ -24,7 +32,7 @@ if (( $# == 0 )); then
   exit 0
 fi
 if (( $# != 1 )) || ! valid_name "$1"; then
-  printf '错误：skill 名称需为不超过 64 字符的小写字母/数字，以单个连字符分隔。\n' >&2
+  printf '错误：skill 名称需为不超过 64 字符的中文汉字/小写字母/数字，以单个连字符分隔。\n' >&2
   usage >&2
   exit 2
 fi

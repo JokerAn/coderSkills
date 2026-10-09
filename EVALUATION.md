@@ -10,6 +10,8 @@
 
 该记录已在结果中标注 `stale_revision`：其记录的 `SKILL.md` 与 `review-checks.md` 摘要属于加入 `version` 元数据、统一证据术语之前的版本。原始摘要保留以说明该轮实际评估的内容，未重跑评估，因此不更新哈希——过期的证据不应伪装成当前版本的结论。
 
+中文名称迁移时仅同步了记录中的 skill 标识与路径；历史摘要、实际回答及 `stale_revision` 标记保留，未重新执行行为评估。
+
 每个 skill 的 `SKILL.md` frontmatter 含 `name`、`description` 和 `version`。`version` 为语义化版本，仅在 skill 行为约定变化时递增，用于让评测记录指向明确的一版内容。
 
 ## 用例格式
