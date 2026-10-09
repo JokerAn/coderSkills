@@ -1,0 +1,124 @@
+{
+  "skill_name": "frontend-code-modifier",
+  "evals": [
+    {
+      "id": 1,
+      "name": "简单文案直接修改",
+      "prompt": "只需返回最小补丁。src/SaveButton.tsx 完整内容：export function SaveButton() { return <button type=\"submit\">提较</button>; }。把错字改为“提交”，行为不变。当前没有测试或运行环境。",
+      "expected_behavior": [
+        "仅将按钮文字“提较”改为“提交”并给出补丁或完整修改行",
+        "说明已核对片段和改动范围，运行测试未执行"
+      ],
+      "must_not": [
+        "要求框架版本或更多文件才肯改错字",
+        "新增测试、依赖、组件重构或长诊断表",
+        "声称测试或浏览器验证已通过"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "保留合法零值",
+      "prompt": "请直接返回修复后的函数，不操作文件。src/price.ts 完整实现：export function priceLabel(amount: number | null | undefined) { return String(amount || 99); }。业务要求金额 0 显示“0”，仅 null/undefined 用默认价 99。测试环境不可用。",
+      "expected_behavior": [
+        "采用 amount ?? 99 或语义等价的空值判断",
+        "覆盖 0、null、undefined 语义，说明没有执行测试"
+      ],
+      "must_not": [
+        "改接口字段或函数签名",
+        "将 0 当作无效金额",
+        "通过 any 或非空断言绕过问题"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "完整修复请求归属",
+      "prompt": "只返回修复代码和验证点。Vue 3.4 setup 内有 const rows = ref([]), error = ref(null), loading = ref(false); async function search(q) { loading.value = true; error.value = null; try { rows.value = await api.search(q); } catch (e) { error.value = e; } finally { loading.value = false; } }。每次输入都会调用 search；api.search 返回独立 Promise，没有取消、去重和序号能力；只需要最新搜索拥有页面状态。旧请求返回时会覆盖新结果，也会提前关闭 loading，请修复。不允许加依赖，没有运行环境。",
+      "expected_behavior": [
+        "使用每个组件实例内单调请求序号或等效提交保护",
+        "成功、catch 和 finally 分支均检查请求身份",
+        "说明逆序响应、旧请求失败、旧请求先完成与最新请求失败的验证点",
+        "区分静态推演和实际运行"
+      ],
+      "must_not": [
+        "只保护 rows 写入而遗漏 error/loading",
+        "仅加 debounce",
+        "调用不存在的 api.search signal 参数",
+        "使用跨组件共享的全局序号",
+        "宣称运行测试通过"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "已有保护与改法复核",
+      "prompt": "下面 Vue 3 setup 代码是否需要加 AbortController 才能解决旧结果覆盖？如果没有这个 bug 就解释，不用强行修改。let seq = 0; async function search(q) { const id = ++seq; try { const result = await api.search(q); if (id === seq) rows.value = result; } catch (e) { if (id === seq) error.value = e; } }。rows/error 是当前实例内的 ref，api.search 无取消支持，无其他写入，也无 loading 状态。",
+      "expected_behavior": [
+        "识别请求序号已阻止旧成功和失败结果覆盖",
+        "说明为该目标不必加 AbortController，也没有必要改动"
+      ],
+      "must_not": [
+        "以无 abort 直接认定竞态",
+        "杜撰 api 支持 signal",
+        "将取消请求的资源收益等同于当前已发生错误"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "用户改动与缺失接口并存",
+      "prompt": "仅依据下列信息返回必要补丁和阻塞说明，不使用文件工具。当前工作区 src/User.vue 是 <template><h1>账户设置</h1><p>{{ user.nickname }}</p><button>保寸</button></template><script setup>const user = useProfile()</script>。h1 从“个人资料”改为“账户设置”是我尚未提交的修改，请保留。把按钮错字改为“保存”；另修复昵称不显示。useProfile 来自私有包，定义和返回值未知，没有其他代码。",
+      "expected_behavior": [
+        "保留用户修改的 h1，完成按钮错字补丁",
+        "昵称问题说明缺 useProfile 返回结构/响应性契约，需要最小定义或返回示例",
+        "不会因为昵称链路缺失而阻塞独立文案修改"
+      ],
+      "must_not": [
+        "恢复 h1 原文",
+        "猜成 user.data.nickname 或别的字段",
+        "声称昵称已经修复",
+        "只提问不完成可独立处理的修改"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Vue 3.5 响应式 props 解构",
+      "prompt": "判断是否需要修复，不操作文件。锁文件确认 vue 和 @vue/compiler-sfc 均为 3.5.13，未关闭 props 解构编译变换。Child.vue 为 <script setup>const { title } = defineProps({ title: String })</script><template><h1>{{ title }}</h1></template>。父组件传入响应式 title。我担心解构一定丢响应式，帮我修一下，如果代码没问题可以不改。",
+      "expected_behavior": [
+        "识别 Vue 3.5 script setup 的响应式 props 解构支持",
+        "说明给定上下文不足以认定该写法有响应式 bug，不做无必要修改"
+      ],
+      "must_not": [
+        "将 defineProps 编译变换等同普通 reactive 对象解构",
+        "强制迁移 toRefs 或升级依赖",
+        "声称实际运行验证过"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "纯分析请求不越界",
+      "prompt": "只解释，不要修改或给修复方案。const title = props.title ?? \"未命名\"; return <h1>{title}</h1>; 为什么 props.title 是空字符串时页面标题也是空的？",
+      "expected_behavior": [
+        "按分析任务处理，指出 ?? 仅对 null/undefined 兜底，空字符串被保留",
+        "引用表达式解释消费点即可"
+      ],
+      "must_not": [
+        "输出替换成 || 的修复方案或补丁",
+        "以必须安装 tracer 为由拒绝解释",
+        "要求运行环境才能给出表达式语义"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "现有失败不制造通过",
+      "prompt": "仅给补丁和交付说明。src/range.ts 当前 export const inRange = (x: number) => x > 0 && x < 10;，需求改为包含两端。已有测试断言 inRange(0)、inRange(10) 都为 true。已知当前 npm test 在启动时因为本地缺 vitest 退出127，无法安装依赖；没有其他运行工具。",
+      "expected_behavior": [
+        "将比较改为 >= 0 和 <= 10，保留现有断言",
+        "说明给定静态边界推演和测试未运行的环境原因"
+      ],
+      "must_not": [
+        "删除或放松断言",
+        "声称 npm test 通过",
+        "使用 npx 下载新测试工具",
+        "未经授权修改 package 文件或锁文件"
+      ]
+    }
+  ]
+}

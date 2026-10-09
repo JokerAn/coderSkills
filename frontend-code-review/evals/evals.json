@@ -1,0 +1,178 @@
+{
+  "skill_name": "frontend-code-review",
+  "evals": [
+    {
+      "id": 1,
+      "name": "无问题的 Vue 2 已声明属性更新",
+      "prompt": "请只读评审下面的 diff，不要求优化。没有可访问的仓库，以提供的文件为完整上下文。package.json 为 {\"dependencies\":{\"vue\":\"2.6.14\"}}，lockfile 解析同版本。src/Counter.vue 的完整旧文件：\n<template><button @click=\"increment\">{{ count }}</button></template>\n<script>\nexport default {\n  data() { return { count: 0 }; },\n  methods: { increment() { this.count = this.count + 1; } }\n};\n</script>\n新文件仅把 increment 改为 increment() { this.count += 1; }。需求是每次点击加一，其余内容不变。没有运行任何测试。",
+      "expected_behavior": [
+        "说明在该变更范围内未发现有充分证据的缺陷。",
+        "识别 count 已在 data 声明，常规赋值在 Vue 2 中可响应。",
+        "简要说明依据是所给 diff 与完整组件，未运行测试。"
+      ],
+      "must_not": [
+        "要求 Vue.set 或 useEffect。",
+        "编造优化、P2 或 P3 来凑数。",
+        "声称测试通过，或修改文件。"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "移除失效保护引入真实响应竞态",
+      "prompt": "只读评审此提交，不要求优化。全部上下文如下，不存在额外请求封装。package.json 和 lockfile 均为 React 18.2.0。Search.jsx 是只读帮助内容搜索，不涉及写数据、支付或权限；query 可由输入框连续更新。load(q) 每次独立返回 Promise，始终成功返回字符串数组，最多 500ms，先发的请求允许后完成。\n旧版 Search.jsx：\nimport { useEffect, useState } from 'react';\nimport { load } from './api';\nexport function Search({ query }) {\n  const [rows, setRows] = useState([]);\n  useEffect(() => {\n    let active = true;\n    load(query).then(result => { if (active) setRows(result); });\n    return () => { active = false; };\n  }, [query]);\n  return <ul>{rows.map(row => <li key={row}>{row}</li>)}</ul>;\n}\n本次仅将 effect 改为：\n  useEffect(() => {\n    load(query).then(setRows);\n  }, [query]);\n结果字符串保证唯一。只做静态评审，未运行页面。",
+      "expected_behavior": [
+        "报告一个由删除 active 保护引入的 P2 竞态，定位新的无条件 setRows 或保护删除处。",
+        "列明 A 发出、B 发出、B 返回、A 返回导致旧结果覆盖的可达顺序及用户影响。",
+        "建议恢复有效性检查或等效隔离，明确这是静态可达路径。"
+      ],
+      "must_not": [
+        "仅以没有 AbortController 为证据。",
+        "把此有条件、只读列表错误标为 P0。",
+        "额外将一次卸载后 setState 当成内存泄漏，或声称已实际复现。"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "已有调用层保护无需再要求取消",
+      "prompt": "请审查完整快照是否有 bug，保持只读，不需要性能优化。React 18.2.0 已由 manifest 与 lockfile 确认。load(q) 是有界、始终成功的只读请求，各次结果可能乱序，字符串结果唯一。所有相关代码如下：\n// src/useRows.js\nimport { useEffect, useState } from 'react';\nimport { load } from './api';\nexport function useRows(query) {\n  const [rows, setRows] = useState([]);\n  useEffect(() => {\n    let active = true;\n    load(query).then(result => { if (active) setRows(result); });\n    return () => { active = false; };\n  }, [query]);\n  return rows;\n}\n// src/List.jsx\nimport { useRows } from './useRows';\nexport function List({ query }) {\n  const rows = useRows(query);\n  return <ul>{rows.map(row => <li key={row}>{row}</li>)}</ul>;\n}\n需求允许新请求加载期间继续展示旧结果，最终只展示当前 query 的结果。没有其他 error/loading 状态。",
+      "expected_behavior": [
+        "沿 List 到 useRows 追踪并识别 effect cleanup 的失效保护。",
+        "说明没有足够证据认定过期结果覆盖或资源泄漏，可以无 findings。"
+      ],
+      "must_not": [
+        "因没有 abort 报竞态或泄漏。",
+        "要求用户重复提供已经可见的 hook。",
+        "在用户未要求优化时强行输出 P3。"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "缺上下文不推定缺失且继续独立评审",
+      "prompt": "请只读评审以下两个片段，无法访问仓库；没有其他上下文，不要求优化。片段 A 来自 Search.tsx，只提供：\nfunction refresh(id) {\n  return load(id).then(setRows);\n}\nload、setRows 的定义及调用入口未提供。\n片段 B 来自 displayAmount.ts，本次唯一变更是将以下完整函数中的 ?? 改为 ||：\n旧：export function displayedDiscount(discount: number | null | undefined) { return discount ?? 100; }\n新：export function displayedDiscount(discount: number | null | undefined) { return discount || 100; }\n业务契约：discount 允许 0，代表免费；函数结果仅用于展示折扣百分比，不决定实际扣款。",
+      "expected_behavior": [
+        "对片段 B 报 P2：合法的 0 被替换为 100，给出修复方向。",
+        "对片段 A 的竞态仅列待确认，说明需要调用顺序与 load 内部保护等证据。",
+        "继续输出独立可证的 B 问题，不因 A 缺失信息中止整个评审。"
+      ],
+      "must_not": [
+        "直接断言 A 缺少取消、cleanup、错误处理或权限校验。",
+        "把证据不足的 A 降为 P2/P3 正式发现。",
+        "从 tsx 扩展名猜 React 精确版本。"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "多轮复审复用会话并核实修复",
+      "prompt": "继续上一轮只读复审，只检查修复是否有效和是否引入新问题。以下为已在同一会话中的历史，请直接复用，不要求我再粘贴。\n上一轮 finding：R1 [P2] src/Search.jsx 的 useEffect 直接执行 load(query).then(setRows)，快速改变 query 且旧请求后返回时覆盖当前结果。建议失效检查。React 18.2.0，load 为最多 500ms、始终成功的只读 Promise，结果字符串唯一；加载期间允许继续显示旧内容。\n本轮补丁后的完整组件：\nimport { useEffect, useState } from 'react';\nimport { load } from './api';\nexport function Search({ query }) {\n  const [rows, setRows] = useState([]);\n  useEffect(() => {\n    let active = true;\n    load(query).then(result => { if (active) setRows(result); });\n    return () => { active = false; };\n  }, [query]);\n  return <ul>{rows.map(row => <li key={row}>{row}</li>)}</ul>;\n}\n本轮只增加 active 保护与 cleanup，没有其他变更。没有运行测试。",
+      "expected_behavior": [
+        "将 R1 标记已修复，引用本轮失效标记与 cleanup 作为静态依据。",
+        "在未发现新缺陷时明确说明，不把已修复 R1 重复列为新 finding。",
+        "区分静态核实修复和实际运行验证。"
+      ],
+      "must_not": [
+        "要求重新提供上一轮 P0/P1 清单。",
+        "因为本轮没有 abort 而判定 R1 仍存在。",
+        "声称运行测试验证通过。"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "区分本次新增缺陷与原有缺陷",
+      "prompt": "只读评审本次 diff，只报告本次引入的问题；不做全文件历史审计。这是 React 18.2.0 项目的工具文件，相关契约如下：name 允许 undefined，pageSize 允许 0 表示显示零条结果；两个函数的调用方及输入域在本次均未变化。完整旧版 src/format.js：\nexport function displayName(name) { return name.trim(); }\nexport function visibleCount(pageSize) { return pageSize ?? 20; }\n完整新版 src/format.js：\nexport function displayName(name) { return name.trim(); }\nexport function visibleCount(pageSize) { return pageSize || 20; }\nvisibleCount 的结果仅控制帮助列表显示条数。没有其他修改。",
+      "expected_behavior": [
+        "只把 visibleCount 对 0 的错误兜底作为本次 P2 finding，定位第 2 行。",
+        "通过新旧对照识别 displayName 的 undefined 问题早已存在，不归因于本次变更。"
+      ],
+      "must_not": [
+        "将 unchanged 的 name.trim 计入本次 findings。",
+        "把普通列表显示问题定为 P0/P1。",
+        "以只看新增行为为由忽略可见旧版对照。"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Vue 3.5 响应式 props 解构不是缺陷",
+      "prompt": "审查下面新增组件，保持只读，只找 bug。没有仓库访问。package.json 依赖 vue 为 ^3.4.0，但 lockfile 的 vue 与 @vue/compiler-sfc 都解析为 3.5.13，构建确认使用该编译器，propsDestructure 未禁用。父组件传入有限数字 count，可随按钮点击更新。src/Double.vue 的完整文件：\n<script setup lang=\"ts\">\nimport { computed } from 'vue';\nconst { count } = defineProps<{ count: number }>();\nconst doubled = computed(() => count * 2);\n</script>\n<template><span>{{ doubled }}</span></template>\n需求是始终展示 count 的两倍，没有其他逻辑。",
+      "expected_behavior": [
+        "以锁定且实际使用的 Vue / 编译器 3.5.13 判断 props 解构行为。",
+        "识别 computed 中访问解构 props 在该编译器配置下保持响应性，无需因解构报错。"
+      ],
+      "must_not": [
+        "仅根据 manifest 的 ^3.4.0 断定运行 Vue 3.4。",
+        "宣称所有 defineProps 解构都丢失响应性。",
+        "为了凑数要求 toRefs、watch 或拆组件。"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "React 18 卸载后一次状态更新不自动泄漏",
+      "prompt": "只读审查完整组件，只找缺陷，不要求优化。manifest 与 lockfile 确认 React 18.2.0。生产客户端组件无 StrictMode，无 SSR，无输入变化。请求契约：只读、总在 100ms 内成功完成、无持久订阅或外部全局引用，返回固定文字；加载期间可能因用户关闭对话框而卸载。完整 src/Notice.jsx：\nimport { useEffect, useState } from 'react';\nfunction loadNotice() {\n  return new Promise(resolve => setTimeout(() => resolve('Hello'), 100));\n}\nexport function Notice() {\n  const [text, setText] = useState('');\n  useEffect(() => { loadNotice().then(setText); }, []);\n  return <p>{text}</p>;\n}\n需求仅是在组件仍挂载且加载完成时展示文字，卸载后无需展示。",
+      "expected_behavior": [
+        "不把一次有界 Promise 完成后对已卸载组件的更新自动认定为内存泄漏。",
+        "在没有其他实际后果时允许无 findings。"
+      ],
+      "must_not": [
+        "用已卸载 setState 的旧警告证明 React 18 内存泄漏。",
+        "凭没有 cleanup 就断言无限计时器泄漏。",
+        "将可选取消机制包装成 P1/P2 bug。"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "暂存缺陷不被未暂存修复掩盖",
+      "prompt": "仅评审 staged，保持只读，不评审工作区最终版本。以下是可信的只读 Git 结果，不需要工具访问：\ngit status --short：\nMM src/limit.js\nHEAD 中 src/limit.js：\nexport function limit(value) { return value ?? 10; }\nindex 中 src/limit.js（git show :src/limit.js）：\nexport function limit(value) { return value || 10; }\n工作区 src/limit.js：\nexport function limit(value) { return value ?? 10; }\ngit diff --cached 显示 ?? 变 ||；git diff 显示 || 变 ??；git diff HEAD 为空。\n这是 Vue 3.5.13 项目的帮助列表工具。契约明确允许 value=0 显示零条，其结果只控制展示条数。没有其他变更或调用方保护。",
+      "expected_behavior": [
+        "以 HEAD 到 index 作为基线，报告暂存版本将 0 变为 10 的 P2。",
+        "说明工作区已有修复但尚未暂存，因此不消除 staged 中的缺陷。"
+      ],
+      "must_not": [
+        "因为 git diff HEAD 为空而判定无改动。",
+        "把工作区版本当成 index。",
+        "运行 git add 自动暂存修复。"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "分支评审使用 merge-base 而非目标分支尖端",
+      "prompt": "只读评审 feature 分支相对明确目标 origin/main 的已提交改动，不要求优化。不能访问实际仓库，请使用完整 Git 对象资料：M 是共同祖先；origin/main 的 T 与 feature/HEAD 的 H 分别以 M 为父提交。git merge-base origin/main HEAD 返回 M。无未提交改动，React 18.2.0 项目。\nM 的 src/label.js：\nexport const label = 'Search';\nexport const pageSize = 10;\nT 的 src/label.js：\nexport const label = 'Suche';\nexport const pageSize = 10;\nH 的 src/label.js：\nexport const label = 'Search';\nexport const pageSize = 20;\n本次需求仅将默认展示数从 10 调成 20，允许范围为 1 到 100，消费者支持任意此范围的数字。目标分支翻译变更尚未合入 feature，无本次翻译需求，无其他文件变更。",
+      "expected_behavior": [
+        "使用 M 到 H 对照，仅将 pageSize 的 10 到 20 视为本次变化。",
+        "在提供的契约下说明未发现缺陷。"
+      ],
+      "must_not": [
+        "把 T 到 H 的 label 差异当成本次回退翻译的 finding。",
+        "猜测另一个目标分支或要求用户重新说明目标。",
+        "修改、合并或 rebase 分支。"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "空 tracked diff 仍检查 untracked 新文件",
+      "prompt": "请只读评审当前全部改动。以下为完整只读结果与相关上下文，没有实际仓库可用。Vue 与编译器均锁定 3.5.13，src/components 目录的所有 .vue 文件都由现有构建规则自动注册。\ngit diff 和 git diff --cached 均为空；git status --short 仅为 ?? src/components/Count.vue；git ls-files --others --exclude-standard 仅返回这个文件。\n新增 Count.vue 的完整内容：\n<script setup lang=\"ts\">\nconst props = defineProps<{ count: number }>();\n</script>\n<template><span>{{ props.count || 10 }}</span></template>\n契约：父组件传入有限非负整数，count=0 是合法且常见的空列表条数；模板需要原样显示 count，不能把 0 显示为 10。没有其他改动。",
+      "expected_behavior": [
+        "把未忽略的 untracked 文件纳入当前改动范围。",
+        "报告模板将合法 0 展示为 10 的 P2，指出位置、条件与后果。"
+      ],
+      "must_not": [
+        "因两个 diff 均为空而说没有改动。",
+        "要求先 git add 才能评审或自行暂存文件。",
+        "把未跟踪文件默认当作仓库无关内容忽略。"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "发现可跨未修改消费方但归因于变更",
+      "prompt": "只读评审这次 React 18.2.0 提交，不做其他优化。JavaScript 项目没有返回值类型检查；没有可访问仓库，下面是完整相关上下文。关键日常工单列表的接口始终成功返回 { data: { items: [{ id: 1, title: 'A' }], total: 1 } }。\n旧版 src/api.js：\nimport { client } from './client';\nexport async function getPage() { const res = await client.get('/tasks'); return res.data.items; }\n新版 src/api.js：\nimport { client } from './client';\nexport async function getPage() { const res = await client.get('/tasks'); return res.data; }\n本次仅上述返回语句发生变化。未修改的完整 src/List.jsx：\nimport { useEffect, useState } from 'react';\nimport { getPage } from './api';\nexport function List() {\n  const [rows, setRows] = useState([]);\n  useEffect(() => {\n    let active = true;\n    getPage().then(value => { if (active) setRows(value); });\n    return () => { active = false; };\n  }, []);\n  return <ul>{rows.map(row => <li key={row.id}>{row.title}</li>)}</ul>;\n}\n列表是该模块用户每日工作的必要入口，无其他包装层，未运行测试。",
+      "expected_behavior": [
+        "报告一个 P1 返回契约破坏，定位 src/api.js 的新返回语句，并引用 List 的状态写入和 rows.map 路径。",
+        "对照旧版说明数组变对象使正常加载后的关键列表无法渲染。",
+        "合并同根因表现，说明静态可达而非已执行复现。"
+      ],
+      "must_not": [
+        "因 List 未在 diff 中而拒绝追踪它。",
+        "将正常流程崩溃和类型不匹配拆成两条重复 finding。",
+        "无视模块范围直接标 P0，或声称已经运行页面复现。"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "skill_name": "frontend-code-tracer",
+  "evals": [
+    {
+      "id": 1,
+      "name": "简单固定文案直接溯源",
+      "prompt": "仅根据完整组件片段分析，不修改代码。用户问：按钮上的‘保存’从哪里来？文件 SaveButton.jsx：export function SaveButton() { return <button type=\"button\">保存</button>; }。本题没有其他文件或运行信息。",
+      "expected_behavior": [
+        "直接指出文案来自 SaveButton.jsx 中 button 的静态子节点字符串‘保存’。",
+        "用给出的文件与代码片段支撑答案，保持简短。",
+        "说明代码层面的来源即可，不要求运行记录才能回答。"
+      ],
+      "must_not": [
+        "要求至少三条证据或至少排除一个竞争来源。",
+        "人为引入缓存、接口、首次无缓存场景或强制图表。",
+        "编造精确行号、运行结果，或修改文案。"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "零值与空值兜底的区别",
+      "prompt": "请只分析：为什么数量显示 0，标题显示‘未命名’？提供完整的本次渲染输入和组件：const payload = { count: 0, title: '' }; function Summary({ data }) { return <section><span>{data.count ?? 10}</span><h1>{data.title || '未命名'}</h1></section>; }；本次传入 <Summary data={payload} />。没有额外转换或组件封装。",
+      "expected_behavior": [
+        "从两个 JSX 消费表达式逆推到本次传入的 payload。",
+        "解释 0 不是 null/undefined，因此 ?? 保留 0；空字符串为 falsy，因此 || 使用‘未命名’。",
+        "将结果表述为给定输入下组件表达式的结果，不声称进行了实际浏览器验证。"
+      ],
+      "must_not": [
+        "把 ?? 描述成对所有 falsy 值兜底，或说数量变成 10。",
+        "因出现兜底运算符而要求完整深查、缓存排查或额外运行日志。",
+        "未经请求改成另一种运算符。"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "缓存初值与有记录的异步覆盖",
+      "prompt": "只解释来源，不要修改或加日志。完整局部逻辑为：const state = { name: cachedName ?? '加载中' }; function renderText() { return state.name ?? '未命名'; } async function load(id) { const r = await getProfile(id); state.name = r.name; }。getProfile 只返回 Promise，不直接改 state。记录：本次 cachedName='缓存名'；t0 初始化；t1 调用 load('A')；t2 调用 load('B')；t3 B 返回 {name:'乙'} 且其赋值完成；t4 A 返回 {name:'甲'} 且其赋值完成。到 t5 没有其他写入。问 t0、t3、t4 分别调用 renderText() 得到什么，为什么先显示乙又变甲？后面还可能继续调用 load。",
+      "expected_behavior": [
+        "按记录解释 t0 为‘缓存名’，t3 为‘乙’，t4 为‘甲’，并限定到相应写入后和下一次写入前。",
+        "说明 A 虽较早发起但较晚写入，此代码缺少请求有效性守卫，因此覆盖 B。",
+        "区分 renderText 的求值与未提供证据的实际 UI 渲染提交；说明不能为未来持续调用给永恒最终值。"
+      ],
+      "must_not": [
+        "只根据请求发起顺序断定 B 最终获胜。",
+        "称‘甲’是此状态永远不再变化的最终值。",
+        "未经请求插桩、添加日志、修改缓存或实现取消逻辑。"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "没有响应时序时保留条件结论",
+      "prompt": "根据以下完整局部代码判断两次调用后 name 是 A 还是 B，只分析不运行：let name = '初始'; async function load(id) { const r = await api(id); name = r.name; } load('A'); load('B');。已知 api('A') 成功时返回 {name:'A'}，api('B') 成功时返回 {name:'B'}，两者都会成功且各赋值一次，没有其他写入，但没有响应完成顺序。问：两个请求完成后 name 一定是什么？",
+      "expected_behavior": [
+        "明确仅凭当前信息无法确定两个请求都完成后的唯一值。",
+        "给出最后一次赋值来自 A 则为 A、来自 B 则为 B 的条件结论。",
+        "指出需要实际完成或写入顺序才能判断本次结果，仍确认两个调用都具备写入路径。"
+      ],
+      "must_not": [
+        "按源码顺序断定必定是 B。",
+        "编造网络时序、日志或测试结果。",
+        "因缺运行顺序而拒绝解释已经确定的代码链路。"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "同名字段在不同作用域并非同一来源",
+      "prompt": "请追踪页面显示的 user.name 是否来自 store，只分析。提供所有相关文件：store.js：export const user = { name: '全局用户' }; Page.jsx：import { user as globalUser } from './store'; const result = { user: { name: '接口用户' } }; function Badge({ user }) { return <b>{user.name}</b>; } export function Page() { const user = result.user; return <><Badge user={user} /><small>{globalUser.name}</small></>; }。只问 b 标签内的名称；result 为此片段给定的对象，没有请求代码。",
+      "expected_behavior": [
+        "沿 b → Badge 的 user prop → Page 局部 user → result.user.name 追踪，得出字符串‘接口用户’。",
+        "区分 store 的 globalUser 和局部 user，说明 store 仅连接到 small，在给定范围未接入 b。",
+        "指出变量或字符串名不能证明真实接口来源；本题只能确认 result 字面量。"
+      ],
+      "must_not": [
+        "将所有 user 或 name 视为同一变量。",
+        "因字符串‘接口用户’或变量 result 就断言来自某个网络接口。",
+        "扩大为整个项目从不使用 store 或编造请求地址。"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "缺封装文件和版本时继续独立链路",
+      "prompt": "只分析这两个问题：标题来自哪里，以及关闭弹窗后表单是否保留。唯一文件 Panel.vue：<template><h2>{{ title }}</h2><button @click=\"close\">关闭</button><VendorModal :open=\"open\"><UserForm /></VendorModal></template><script setup>import { ref } from 'vue'; import VendorModal from './VendorModal.vue'; import UserForm from './UserForm.vue'; const title = '编辑资料'; const open = ref(true); function close() { open.value = false; }</script>。VendorModal.vue、UserForm.vue、package.json 和锁文件均未提供，也无法访问仓库。场景为用户点击关闭按钮，但未提供运行日志或库名。",
+      "expected_behavior": [
+        "直接确认 h2 的 title 来自本地常量‘编辑资料’，不因缺其他文件搁置这个答案。",
+        "确认调用 close 会将 open 设为 false，传给 VendorModal 的参数相应改变；不据此确认表单已卸载或状态已清空。",
+        "将表单保留行为列为缺口，具体请求 VendorModal/UserForm 实现，以及行为涉及外部库时相关 manifest 和锁文件解析版本。",
+        "不从组件名猜库或版本。"
+      ],
+      "must_not": [
+        "声称 VendorModal 默认销毁、保留或 resetFields 而无对应证据。",
+        "要求用户先提供完整项目才能回答标题来源。",
+        "虚构读取过缺失文件或核实过依赖文档。"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "有守卫的可达路径不等于实际命中",
+      "prompt": "请只分析：点击按钮是否一定发请求？完整片段为 function submit(form, disabled) { if (disabled || !form.email) return 'skipped'; return api.post('/subscribe', { email: form.email }); }。按钮 onClick 调用 submit(form, disabled)，form 始终为普通对象且没有 getter，但点击时 form.email、disabled 的实际值和日志未提供。api.post 的行为不在本题讨论范围，问题仅指有没有调用该方法。",
+      "expected_behavior": [
+        "从 api.post 调用点反查 submit 和 onClick。",
+        "说明 disabled 为 falsy 且 form.email 为 truthy 时会调用；被任一守卫拦截时返回 skipped。",
+        "区分代码可达条件与这次实际调用未知，不要求确认 api 内部行为才能回答调用条件。"
+      ],
+      "must_not": [
+        "因按钮绑定了 submit 就声称每次点击都发请求。",
+        "把没有运行输入误写成该路径已排除。",
+        "自动发送真实订阅请求进行验证。"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "声明版本范围不能替代安装版本",
+      "prompt": "只分析项目中的 React useEffect 是否一定执行两次。提供 package.json：{\"dependencies\":{\"react\":\"^18.2.0\",\"react-dom\":\"^18.2.0\"}}；Counter.jsx：import { useEffect } from 'react'; export function Counter() { useEffect(() => { report('mounted'); }, []); return <span>计数</span>; }。锁文件、入口 createRoot/StrictMode 配置、开发或生产环境均未提供，没有运行日志，也不能联网核对资料。report 只记录被调用，不影响挂载。",
+      "expected_behavior": [
+        "指出 manifest 给出的是声明范围，不能断言精确解析或实际运行版本。",
+        "说明只凭 effect 代码不能断言一定执行两次，实际次数涉及版本、开发模式、StrictMode 和挂载行为等。",
+        "给出本地可确认的事实：effect 回调包含 report 调用；需要对应入口配置、锁文件或安装版本及运行记录进一步判定。"
+      ],
+      "must_not": [
+        "称 React 18 在所有环境 effect 都执行两次。",
+        "把 ^18.2.0 当成已安装 18.2.0。",
+        "在无法核实的情况下声称已查官方文档，或通过改 StrictMode 配置获取证据。"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "用户授权修复后允许直接进入修改",
+      "prompt": "先分析再修复下面完整函数，让 count=0 时保留 0；我明确授权你给出修正后的完整函数。本题仅有这段代码，无工作区文件，无其他 skill 可用：function countLabel(count) { return String(count || 10); }。其他 falsy 输入的行为以‘只有 null/undefined 用 10’为准。",
+      "expected_behavior": [
+        "先说明 || 对 0 等 falsy 值使用 10 的原因。",
+        "识别显式修复授权，直接给出使用 count ?? 10 的完整函数。",
+        "在没有 modifier skill 时仍完成请求，不把独立安装当成阻塞；不声称实际编辑了不存在的工作区文件。"
+      ],
+      "must_not": [
+        "以 tracer 永远只读为由拒绝用户已授权的修复。",
+        "要求安装其他 skill 或重复确认修改权限。",
+        "继续使用 || 导致 0 被兜底。"
+      ]
+    }
+  ]
+}
