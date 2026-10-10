@@ -1,0 +1,83 @@
+{
+  "skill_name": "绘制mermaid图",
+  "evals": [
+    {
+      "id": 1,
+      "name": "非代码业务流程",
+      "prompt": "用 Mermaid 画一个简单审批流程：员工提交申请，经理审批；通过则财务付款，退回则员工补充材料后重新提交。直接给图，不写文件。没有其他规则。",
+      "expected_behavior": ["交付完整 flowchart 代码，包含通过与退回分支及重新提交循环。", "用业务语言，保持图简洁。"],
+      "must_not": ["强制分析源码、生命周期、ready、缓存或框架。", "添加未提供的审批层级、付款失败路径或固定三图。", "自行写文件或只给绘图计划。"]
+    },
+    {
+      "id": 2,
+      "name": "按用户指定时序图表达交互",
+      "prompt": "给我 Mermaid 时序图：用户点击查询，页面向服务请求；成功时服务返回数据、页面展示结果；失败时服务返回错误、页面提示。直接回答，不访问仓库。",
+      "expected_behavior": ["使用 sequenceDiagram，用户/页面/服务作为参与方。", "用 alt/else 表达成功失败，方向与规则一致。"],
+      "must_not": ["无解释地用 flowchart 替代指定时序图。", "虚构重试、缓存或响应毫秒。", "为简单任务强制使用 MCP。"]
+    },
+    {
+      "id": 3,
+      "name": "状态图节点不是方法",
+      "prompt": "帮我画 Mermaid 状态图：工单初始为待处理，接单后处理中，完成后已完成；处理中取消则已取消，已完成和已取消都是终态。仅这些规则。",
+      "expected_behavior": ["使用 stateDiagram-v2，节点为四个状态。", "将接单、完成、取消作为转移标签，标明给定起点与终态。"],
+      "must_not": ["将接单方法、取消方法画成状态。", "新增已完成到待处理的回退或重试。"]
+    },
+    {
+      "id": 4,
+      "name": "ER基数缺失保留假设",
+      "prompt": "用 Mermaid 帮我建模客户、订单、产品这三类实体，我没提供字段和它们的基数。先给一个合理草案，明确假设，不需要问我。",
+      "expected_behavior": ["交付 erDiagram 草案并标出字段和基数为建议假设。", "需要关联实体时可以提出，但明确属于方案设计而非已有结构。"],
+      "must_not": ["把推测的主外键或一对多说成已确认事实。", "要求完整源码或因为缺基数拒绝提供草案。"]
+    },
+    {
+      "id": 5,
+      "name": "代码异步侧支不被误画成等待",
+      "prompt": "只分析并画 Mermaid 图，不运行不写文件。完整 Init.js：async function init() { const r = await queryConfig(); processConfig(r); ready = true; } function processConfig(r) { config = r; void queryDynamic().then(x => dynamic = x); setTimeout(showPopup, 500); }。queryConfig/queryDynamic 只返回 Promise，不直接写状态；showPopup 只打开弹框。初始 ready=false,config=null,dynamic=null。问主线与 ready 边界，没有网络时序。",
+      "expected_behavior": ["画出同步主线和未等待侧支，说明 ready 不等待动态回填或定时器。", "不推断动态响应与弹框的实际先后；静态语义可说明 then 回调不会插入当前同步段。", "保留源码事实与运行观察的区别。"],
+      "must_not": ["称 async 自动等待内部所有异步操作。", "将 ready 解释为页面 DOM 已渲染或所有请求完成。", "运行、修改代码或编造行号。"]
+    },
+    {
+      "id": 6,
+      "name": "甘特计划遵循指定日期",
+      "prompt": "用 Mermaid 甘特图表示这个计划：2026-10-12 开始需求确认 2 天，随后开发 3 天，再验收 1 天。按自然日，不排除周末。直接给源码。",
+      "expected_behavior": ["使用 gantt，保留指定日期、时长和任务依赖。", "使用 after 或等价日期表达接续，遵守自然日定义。"],
+      "must_not": ["擅自排除周末、更改工期或加入额外阶段。", "把计划当成已经发生的事实。"]
+    },
+    {
+      "id": 7,
+      "name": "调整已有图不改变规则",
+      "prompt": "让这个图更清楚，保持逻辑不变，只给修改后的 Mermaid：flowchart LR; A[提交] --> B{审批}; B -->|通过| C[执行]; B -->|退回| D[补充]; D --> A。",
+      "expected_behavior": ["提供可直接使用的完整 Mermaid，保留通过、退回、补充后重新提交关系。", "可优化方向和标签，不强制重命名全部 ID。"],
+      "must_not": ["添加新角色、取消、失败或新审批条件。", "只给优化建议不交付图。"]
+    },
+    {
+      "id": 8,
+      "name": "图的术语与交付边界",
+      "prompt": "我这三张 Mermaid 都是 flowchart：入口总览、分支、异步回填。专业上叫什么？请解释并在回答里给一个极简流程图例子，不保存文件；有虚线是不是时序图？",
+      "expected_behavior": ["说明都是流程图，链路图是宽泛叫法，异步虚线不会将 flowchart 变成严格时序图。", "区分时序图参与方交互与调用图连接含义。", "回答中交付极简 Mermaid，不强制三张新图。"],
+      "must_not": ["把带虚线的流程图称为时序图。", "自行保存文件、生成 HTML 替代要求的源码。"]
+    },
+    {
+      "id": 9,
+      "name": "同步部分与未等待异步部分分开",
+      "prompt": "只画图和解释，不运行不修改。完整局部代码：let syncValue=0,started=false,later=null,ready=false; function syncTask(){syncValue=1;} async function mixedTask(){started=true; later=await fetchLater();} function enter(){syncTask(); mixedTask(); ready=true;}。fetchLater 只返回原生 Promise，没有其他状态写入。enter 被调用一次。ready 赋值时哪些步骤已执行？再考虑另一个只有 function opaqueEnter(){unknownTask();ready=true;} 的片段，unknownTask 实现缺失且无法取得，还能确定什么？",
+      "expected_behavior": ["区分同步赋值、异步函数首个 await 前的同步部分和后续异步回填；ready 赋值时 syncValue=1、started=true、later=null。", "图中不把 syncTask 或 mixedTask 的同步部分整体画到 ready 之后。", "实现缺失时确认 unknownTask 被调用且正常返回才继续 ready，不能断言其业务工作同步或异步完成。"],
+      "must_not": ["根据没有 await 就说所有任务都未完成。", "仅从 unknownTask 名字推断执行方式。", "运行代码、写文件或声称观测到网络时序。"]
+    },
+    {
+      "id": 10,
+      "name": "只更新指定Markdown图并保留其他内容",
+      "setup": "在独立临时工作区，将本 Skill 的 evals/fixtures/flow.md 复制为 docs/flow.md。告知被测 agent 该工作区绝对路径；执行后保存文件前后内容及 diff，检查范围外文本保持不变。不得用真实业务文档做此评估。",
+      "prompt": "请在指定评估工作区内更新 docs/flow.md 的‘审批流程’图：补充经理退回后员工补充材料并重新提交的分支。保留通过后财务付款的路径，其他正文、链接和‘发布流程’图保持原样。直接修改 Markdown，保留 Mermaid 源码。",
+      "expected_behavior": ["实际更新指定 docs/flow.md 的目标代码块，保留通过路径并新增退回、补充、重新提交循环。", "目标代码块之外的正文、链接和另一张图保持不变，不仅在聊天输出图。", "只报告实际执行的文件/语法/渲染验证，不把未渲染称为渲染通过。"],
+      "must_not": ["另建 HTML 或截图替代 Markdown 修改。", "覆盖整份文档导致无关内容变化或丢失。", "修改其他工作区或 Skill 本身。"]
+    },
+    {
+      "id": 11,
+      "name": "修复保留字与标签引号而保留含义",
+      "prompt": "修复这段 Mermaid flowchart 的语法，只给可直接使用的 Mermaid 代码，不写文件。要求保留两个节点标签的可见文字‘完成’与‘读取 \"A/B\" 配置 (可选)’及从前者到后者的箭头：\nflowchart TD\n    end[完成] --> B[读取 \"A/B\" 配置 (可选)]",
+      "expected_behavior": ["使用安全节点 ID，避免 end 保留字；通过标签引号和 Mermaid 支持的转义保留含双引号与括号的文字。", "完整代码可被所测 Mermaid 版本解析，节点与边的含义不变。"],
+      "must_not": ["删除括号、A/B、双引号或整个节点来避免语法问题。", "只解释错误不给修复代码。", "未实际调用渲染器却声称渲染通过。"]
+    }
+  ]
+}

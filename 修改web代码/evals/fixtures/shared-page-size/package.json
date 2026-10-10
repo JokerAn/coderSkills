@@ -1,0 +1,11 @@
+{
+  "name": "shared-page-size-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test checks/page-size.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

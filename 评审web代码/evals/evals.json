@@ -173,6 +173,24 @@
         "将正常流程崩溃和类型不匹配拆成两条重复 finding。",
         "无视模块范围直接标 P0，或声称已经运行页面复现。"
       ]
+    },
+    {
+      "id": 13,
+      "name": "评审未检出的分支而非本地HEAD",
+      "setup": "评估组织者运行 python3 evals/setup-branch-review.py（路径相对于本 Skill），创建临时 Git 仓库，并提供输出的 workspace 路径。main 保留正确实现，feature 已提交错误实现，当前检出 main，README 有无关用户未提交修改。组织者保留执行前后 HEAD、index tree、各文件字节及 git status，确认评审未更改这些内容。被测 agent 不读取本 evals 文件和 setup 脚本。",
+      "prompt": "请只读评审指定仓库中 feature 分支相对 main 的已提交改动，只找本次引入的缺陷，不修复、不切换分支，也不动我现有的工作区内容。README 中定义了业务契约。",
+      "expected_behavior": [
+        "分别解析 main 和 feature 的提交，以它们的 merge-base 到 feature 作为评审范围，不把当前 HEAD 当作 feature。",
+        "从 feature 的 Git 对象读取 src/limit.js 及相关契约，报告第 1 行将合法 0 替换成 10 的 P2。",
+        "说明是给定契约下的静态可达问题；main 正确实现和无关工作区文案不掩盖 feature 的缺陷。",
+        "HEAD、index 和工作区文件保持原样，无 checkout、暂存、提交或修复。"
+      ],
+      "must_not": [
+        "因 main 到 HEAD 的 diff 为空就断言 feature 无改动或无问题。",
+        "从磁盘上的 main 版本读取并替代被评审提交。",
+        "为读取 feature 而 checkout、reset、合并或覆盖用户工作区。",
+        "编造运行复现或把无关未提交改动算入分支问题。"
+      ]
     }
   ]
 }

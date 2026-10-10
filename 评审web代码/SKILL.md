@@ -1,7 +1,7 @@
 ---
 name: 评审web代码
 description: "用于 Vue 2、Vue 3 和 React 项目的代码评审：当用户要求 review、审查 diff/提交/分支、找缺陷或判断能否合并时，核对真实基线，追踪上下文，输出有证据和优先级的发现。也支持文件、片段、仓库快照及多轮复审。默认只读，不修改代码、暂存文件、提交或自动修复。"
-version: "6.1.0"
+version: "6.1.1"
 ---
 
 # 前端代码评审
@@ -25,16 +25,19 @@ version: "6.1.0"
 先用 `git status --short`、相关 diff 和文件清单确定实际变化，避免把磁盘文件误当提交内容。
 以下命令中的路径与引用均应取自用户输入或已核实的仓库信息，并正确引用。
 
+分支 / PR 评审先分别确认 `base`（合入目标）和 `reviewHead`（被评审分支或 PR 的头提交），再解析成具体提交。只有核对本地 `HEAD` 与 `reviewHead` 指向同一提交后，才可用 `HEAD` 代替；工作区所在分支不自动等于评审对象。PR 应核对其来源仓库和当前头提交，不能仅凭同名本地分支认定一致。
+
 | 范围 | 差异来源 | 必须读取的目标版本 |
 | --- | --- | --- |
 | staged | `git diff --cached -- <paths>`，HEAD → index | `git show :<path>`，上下游也读 index |
 | unstaged | `git diff -- <paths>`，index → worktree | 工作区文件，旧版从 index 读取 |
 | 当前全部改动 | `git diff HEAD -- <paths>`，HEAD → worktree；另查两层差异 | 工作区最终内容，标明暂存与未暂存边界 |
 | untracked | `git ls-files --others --exclude-standard` | 直接读取列出的文件，作为新增内容；不执行 `git add` |
-| 分支 / PR | 对已确认目标分支执行 `git merge-base <target> HEAD`，再 `git diff <merge-base> HEAD -- <paths>` | `git show HEAD:<path>`，旧版从 merge-base 读取 |
+| 分支 / PR | `git merge-base <base-commit> <review-head-commit>`，再 `git diff <merge-base> <review-head-commit> -- <paths>` | `git show <review-head-commit>:<path>`，上下游也读该提交；旧版从 merge-base 读取 |
 | 指定提交 / 范围 | 使用用户指定的端点；单提交先确认父提交，合并提交确认比较父级 | 从对应 Git 对象读文件 |
 
 - 分支评审默认只覆盖已提交差异。未提交改动需单独标注，不静默混入分支结果。
+- 已有 Git 对象时直接读取，无需为了评审 checkout、合并或重置工作区。评审对象无法解析或缺失时说明缺口，使用可取得的 PR diff / 对象资料继续独立检查，不静默退回本地 HEAD。
 - 不猜 `main`/`master`、远端或目标分支；优先从请求、PR 信息或可用仓库元数据确认。
 - 目标分支无法确定时，继续检查明确可见的内容，说明分支基线尚未确认。
 - `git diff` 不包含 untracked；不能用空 diff 断言没有改动。
@@ -73,7 +76,7 @@ version: "6.1.0"
   检查返回值、默认值、过滤 / 排序口径及跨位置不变量是否被本次变化破坏。
 
 默认单 agent 完成。只有能划出独立可执行的模块或问题链、且上下文交接成本合理时才委派。
-交接包含范围、基线、目标版本、已知约束和证据要求；工具不可用时直接单 agent 继续。
+交接包含范围、基线、目标版本、已知约束和证据要求；分支 / PR 交接给出已确认的 base、reviewHead 和 merge-base 提交，避免子 agent 重新采用本地 HEAD。工具不可用时直接单 agent 继续。
 不按行数强制拉起子 agent，也不强制完整性 / 正确性 / 影响面各占一个角色。
 最终由主评审者核验所有候选问题、合并同根因项，并统一严重性。
 

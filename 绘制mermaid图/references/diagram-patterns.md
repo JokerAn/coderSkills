@@ -1,0 +1,113 @@
+# 图型选择与示例
+
+示例展示基本语法与表达角度，不代表每个场景都需要全部细节。用户指定图型时优先遵循；新图型的支持情况取决于宿主 Mermaid 版本。
+
+## 流程图：动作和条件
+
+```mermaid
+flowchart TD
+    A["收到订单"] --> B{"库存充足？"}
+    B -->|是| C["安排发货"]
+    B -->|否| D["通知补货"]
+```
+
+决策边写条件，业务流程不必引入代码方法名、生命周期或异步术语。若规则中未说明缺货后续，就停在通知补货，不自行添加取消或退款。
+
+## 调用 / 依赖关系图：连接不保证执行顺序
+
+```mermaid
+flowchart LR
+    A["页面"] -->|调用| B["查询服务"]
+    B -->|读取| C["数据接口"]
+    A -->|订阅| D["事件中心"]
+```
+
+箭头标签使不同关系清楚。此图不能证明页面会先查询再订阅，也不能凭连线证明 await。
+
+## 时序图：参与方与消息
+
+```mermaid
+sequenceDiagram
+    actor U as 用户
+    participant P as 页面
+    participant S as 服务
+    U->>P: 提交查询
+    P->>S: 请求结果
+    alt 查询成功
+        S-->>P: 返回结果
+        P-->>U: 展示结果
+    else 查询失败
+        S-->>P: 返回错误
+        P-->>U: 展示错误提示
+    end
+```
+
+时序图用参与方分工表达过程，`alt` 表示条件分支，`loop` 表示重复，`par` 可表达并发。箭头语法的意义遵循 Mermaid 类型，不将流程图自定义“虚线=后台任务”的图例机械套入时序图。
+
+## 状态图：状态与触发事件
+
+```mermaid
+stateDiagram-v2
+    state "待处理" as Pending
+    state "处理中" as Processing
+    state "已完成" as Done
+    [*] --> Pending
+    Pending --> Processing: 接单
+    Processing --> Done: 完成
+    Done --> [*]
+```
+
+只有已知明确的起止状态才使用 `[*]`；不能给未说明的取消、重试和回退添加转移。
+
+## ER 图：实体与基数
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ ORDER_ITEM : contains
+    CUSTOMER {
+        string id PK
+    }
+    ORDER {
+        string id PK
+        string customer_id FK
+    }
+```
+
+本例假定订单属于一个客户，客户可以没有订单；每个订单至少有一个明细。这些基数必须由业务规则支持。现实需求未给基数时先标明未知，或提供明确标注假设的方案。
+
+## 类图：类型与继承
+
+```mermaid
+classDiagram
+    class Animal {
+        +move()
+    }
+    class Bird {
+        +fly()
+    }
+    Animal <|-- Bird
+```
+
+类图表达类型结构；对象间的请求通常用时序图更直接。不要仅根据文件目录推断继承或组合。
+
+## 甘特图：计划与日期
+
+```mermaid
+gantt
+    title 示例计划（假设日期）
+    dateFormat YYYY-MM-DD
+    section 实施
+    需求确认 :a, 2026-10-12, 2d
+    开发 :b, after a, 3d
+    验收 :c, after b, 1d
+```
+
+示例是建议计划。真实输出中的日期和工期来自用户输入或明确的假设；需要时设置周末排除规则，不能擅自改变工作日定义。没有排期信息时，可以先用流程图表达阶段依赖。
+
+## 控制复杂度
+
+- 单张图交叉线过多：分总览和子图，保留衔接点。
+- 单个节点包含多条规则：节点写动作，规则放图后说明。
+- 多种关系混杂：加边标签，或拆成过程图与结构图。
+- 用户需要“直观看懂”：先让主干与关键分支清楚，细节逐层补充。
