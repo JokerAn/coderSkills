@@ -16,6 +16,8 @@
 - **校准评审**：区分变更引入的问题与原有问题，依据实际影响分级。证据不足进入待确认项，不通过降低优先级混进 findings。
 - **校准溯源**：从消费点反推来源，按操作和时间段解释结果。无需为单行问题凑三条证据、四类来源或固定图表。
 - **补全修复闭环**：检查真实契约、用户已有改动，以及异步成功、失败和 `finally` 的状态归属；验证只报告实际执行结果。
+- **抑制防御性膨胀**：明确“默认不写什么”——卸载判断、请求序号/取消、转发变量、全量兜底等，只在用户已报告该症状、需求要求或既有机制必须随之调整时才写。
+- **顺带发现按级处理**：P0/P1 当次修完；P2（真实但不在目标内、正常使用不一定触发）不写进代码，交付时列一条；P3 默认不提。跨文件改动先决定改共享层还是调用点，不在共享函数里加模式开关。
 - **减少环境假设**：框架版本以依赖和配置为准，MCP 工具经发现后按需使用；没有特定工具也可以完成任务。
 - **可持续验证**：每个 skill 配有包含输入、预期行为和禁止行为的评估用例，仓库提供无第三方 Python 依赖的结构校验工具。
 - **统一证据术语**：静态事实、条件结论、运行确认三档命名在三个 skill 中保持一致，便于 tracer 的结论直接交给 modifier 复用。
@@ -47,6 +49,7 @@ coderSkills/
     ├── show-skill.sh
     ├── find-symbol.sh
     ├── show-lines.sh
+    ├── install-dsh-skills.py
     └── validate-skills.py
 ```
 
@@ -64,6 +67,29 @@ coderSkills/
 - “review 后把确认的问题修掉”：先 review，再 modifier，复用已核实的上下文。
 
 用户改变任务意图时按最新授权衔接；不要求重复确认，也不因另一个 skill 未安装而停止已能完成的工作。
+
+### DeepSeek Harness
+
+DeepSeek Harness 由 `@deepseek-ai/dsh-skill-filesystem` 提供方发现本地 skill，按优先级扫描 `<projectRoot>/.dsh/skills`、`<projectRoot>/.agents/skills`、`Config.customSkillDirs`、`$DSH_HOME/skills`（默认 `~/.dsh/skills`）与 `~/.agents/skills`，只识别根目录下一层的 `<name>/SKILL.md`。
+
+**Harness 要求 frontmatter 的 `name` 匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`**，中文名称会被连同警告静默丢弃。因此安装时用脚本生成一份只改写 `name` 的 `SKILL.md`，其余内容（正文、`agents/`、`references/`、`evals/`）保持原样指向仓库：
+
+```bash
+python3 scripts/install-dsh-skills.py              # 安装到 ~/.dsh/skills（子目录符号链接回仓库）
+python3 scripts/install-dsh-skills.py --copy       # 改为自包含副本
+python3 scripts/install-dsh-skills.py --dry-run    # 只打印将要执行的操作
+python3 scripts/install-dsh-skills.py --list       # 查看仓库中文名与 Harness 名称的对应关系
+python3 scripts/install-dsh-skills.py --uninstall  # 移除脚本安装的 skill
+```
+
+| 仓库目录 | DeepSeek Harness 名称 |
+| --- | --- |
+| 修改web代码 | `web-code-modifier` |
+| 评审web代码 | `web-code-reviewer` |
+| 溯源web代码 | `web-code-tracer` |
+| 绘制mermaid图 | `mermaid-diagram` |
+
+名称改写只影响 Harness 侧的调用名（`/web-code-modifier`）；`description` 仍为中文，模型据此判断何时加载。Harness 会监视 skill 根目录，新增、改名或删除在最迟下一个模型步骤生效，无需重启。默认链接模式让正文与引用资料的编辑立即生效；`SKILL.md` 的 `name` 由脚本生成，仓库里改了名称或描述后重跑一次即可。
 
 手动取用时，可以打印主流程：
 
