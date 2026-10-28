@@ -19,3 +19,4 @@ gitDiff/
 !src/views/apply/entry-cache.baseline.test.cjs
 .agent
 tests
+.codex-teams

@@ -4,9 +4,9 @@
 
 | Skill（中文显示名称） | 交付结果 | 典型请求 |
 | --- | --- | --- |
-| [修改web代码](修改web代码/SKILL.md) | 完成修改，解释原因，报告实际验证结果 | “帮我修这个”“改了没生效”“改 A 影响 B” |
-| [评审web代码](评审web代码/SKILL.md) | 按严重程度排序、有触发条件与证据的问题清单 | “review 一下”“这段能不能合并”“找回归” |
-| [溯源web代码](溯源web代码/SKILL.md) | 解释来源、路径、条件与覆盖关系，默认只读 | “这个值从哪来”“为什么不是接口”“怎么实现的” |
+| [web-code-modifier](web-code-modifier/SKILL.md) | 完成修改，解释原因，报告实际验证结果 | “帮我修这个”“改了没生效”“改 A 影响 B” |
+| [web-code-reviewer](web-code-reviewer/SKILL.md) | 按严重程度排序、有触发条件与证据的问题清单 | “review 一下”“这段能不能合并”“找回归” |
+| [web-code-tracer](web-code-tracer/SKILL.md) | 解释来源、路径、条件与覆盖关系，默认只读 | “这个值从哪来”“为什么不是接口”“怎么实现的” |
 
 共同原则：**按风险选择深度，关键结论能核查，静态推导与运行观察分开报告**。简单问题直接回答或修改；缺少上下文时，先完成能独立确认的部分。
 
@@ -30,17 +30,17 @@ coderSkills/
 ├── README.md
 ├── EVALUATION.md                 # 行为评估方法与记录要求
 ├── reports/                      # 已执行抽样的输入版本、输出与判定
-├── 修改web代码/
+├── web-code-modifier/
 │   ├── SKILL.md
 │   ├── agents/openai.yaml        # Codex 中文显示名称
 │   ├── references/change-checks.md
 │   └── evals/evals.json
-├── 评审web代码/
+├── web-code-reviewer/
 │   ├── SKILL.md
 │   ├── agents/openai.yaml
 │   ├── references/review-checks.md
 │   └── evals/evals.json
-├── 溯源web代码/
+├── web-code-tracer/
 │   ├── SKILL.md
 │   ├── agents/openai.yaml
 │   ├── references/tracing-checks.md
@@ -57,7 +57,7 @@ coderSkills/
 
 将需要的 **整个 skill 目录** 放入宿主配置的技能目录，保留 `SKILL.md`、`agents/` 与 `references/` 的相对路径。`evals/` 用于维护评估，建议一起保留。三个 skill 可以独立安装，不依赖仓库根目录脚本、其他 skill 或特定 MCP。
 
-三个 skill 的目录名、`SKILL.md` 中的 `name` 和 `agents/openai.yaml` 中的 `interface.display_name` 统一使用中文名称：“修改web代码”“评审web代码”“溯源web代码”。可使用 `$修改web代码`、`$评审web代码`、`$溯源web代码` 显式调用。升级安装时移除旧版英文名称目录，再复制中文名称目录；若界面未刷新，重启 Codex 后查看技能列表。
+三个 skill 的目录名、`SKILL.md` 中的 `name` 和 `agents/openai.yaml` 中的 `interface.display_name` 统一使用中文名称：“web-code-modifier”“web-code-reviewer”“web-code-tracer”。可使用 `$web-code-modifier`、`$web-code-reviewer`、`$web-code-tracer` 显式调用。升级安装时移除旧版英文名称目录，再复制中文名称目录；若界面未刷新，重启 Codex 后查看技能列表。
 
 `SKILL.md` 的 YAML frontmatter 提供 `name` 和 `description`；宿主通常用它判断何时加载正文。实际自动发现路径、是否需重新加载及工具权限由宿主决定。引用资料只在相关任务中读取。
 
@@ -84,10 +84,10 @@ python3 scripts/install-dsh-skills.py --uninstall  # 移除脚本安装的 skill
 
 | 仓库目录 | DeepSeek Harness 名称 |
 | --- | --- |
-| 修改web代码 | `web-code-modifier` |
-| 评审web代码 | `web-code-reviewer` |
-| 溯源web代码 | `web-code-tracer` |
-| 绘制mermaid图 | `mermaid-diagram` |
+| web-code-modifier | `web-code-modifier` |
+| web-code-reviewer | `web-code-reviewer` |
+| web-code-tracer | `web-code-tracer` |
+| mermaid-diagram | `mermaid-diagram` |
 
 名称改写只影响 Harness 侧的调用名（`/web-code-modifier`）；`description` 仍为中文，模型据此判断何时加载。Harness 会监视 skill 根目录，新增、改名或删除在最迟下一个模型步骤生效，无需重启。默认链接模式让正文与引用资料的编辑立即生效；`SKILL.md` 的 `name` 由脚本生成，仓库里改了名称或描述后重跑一次即可。
 
@@ -95,7 +95,7 @@ python3 scripts/install-dsh-skills.py --uninstall  # 移除脚本安装的 skill
 
 ```bash
 ./scripts/show-skill.sh                       # 列出可用 skill
-./scripts/show-skill.sh 评审web代码  # 打印主文件
+./scripts/show-skill.sh web-code-reviewer  # 打印主文件
 ```
 
 该命令不展开引用文件。粘贴到聊天工具时，按任务补充被引用的相关资料，或让工具可以访问完整 skill 目录。
@@ -109,7 +109,7 @@ python3 scripts/install-dsh-skills.py --uninstall  # 移除脚本安装的 skill
 ./scripts/show-lines.sh src/UserList.vue 40 52      # 输出带行号的指定范围
 ./scripts/show-lines.sh src/UserList.vue 40         # 从第 40 行到末尾
 python3 scripts/validate-skills.py                            # 校验整个仓库的 skill
-python3 scripts/validate-skills.py 评审web代码       # 校验单个 skill
+python3 scripts/validate-skills.py web-code-reviewer       # 校验单个 skill
 python3 scripts/validate-skills.py --manifest                 # 输出各文件摘要，供评测记录版本
 python3 scripts/validate-skills.py --report reports/xxx.json  # 校验评测报告并比对版本摘要
 ```

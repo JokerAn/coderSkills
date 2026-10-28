@@ -1,5 +1,5 @@
 ---
-name: 评审web代码
+name: web-code-reviewer
 description: "用于 Vue 2、Vue 3 和 React 项目的代码评审：当用户要求 review、审查 diff/提交/分支、找缺陷或判断能否合并时，核对真实基线，追踪上下文，输出有证据和优先级的发现。也支持文件、片段、仓库快照及多轮复审。默认只读，不修改代码、暂存文件、提交或自动修复。"
 version: "6.1.1"
 ---
