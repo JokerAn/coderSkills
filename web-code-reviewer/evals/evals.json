@@ -191,6 +191,23 @@
         "为读取 feature 而 checkout、reset、合并或覆盖用户工作区。",
         "编造运行复现或把无关未提交改动算入分支问题。"
       ]
+    },
+    {
+      "id": 14,
+      "name": "父级重置后子组件延迟回写绕过请求保护",
+      "prompt": "请只读评审这次提交，只找本次引入的 bug，不做优化或修复。没有仓库可访问，以下是完整相关上下文。manifest 与 lockfile 确认 vue 和 @vue/compiler-sfc 都是 3.5.13。仅用于只读帮助搜索，loadRows({ category, query, page }) 独立返回 Promise，在 500ms 内始终成功返回与三个参数匹配的唯一字符串数组，允许乱序。帮助内容在本次会话内不变，因此缓存命中可直接使用。需求：输入停顿 300ms 后提交搜索；点击重置立即清空搜索词与列表，回到全部分类第一页，直到下一次用户输入。组件保持挂载。\n本次唯一变更：src/QueryBox.vue 中 props.modelValue 的 watcher 删除了 cancelPending();，保留 draft.value = value。其他代码完全未变。以下给出目标版本完整文件。\n// src/QueryBox.vue\n<script setup>\nimport { ref, watch, onBeforeUnmount } from 'vue';\nconst props = defineProps({ modelValue: { type: String, required: true } });\nconst emit = defineEmits(['update:modelValue']);\nconst draft = ref(props.modelValue);\nlet timer = null;\nfunction cancelPending() {\n  if (timer !== null) { clearTimeout(timer); timer = null; }\n}\nfunction onInput(event) {\n  draft.value = event.target.value;\n  cancelPending();\n  const value = draft.value;\n  timer = setTimeout(() => {\n    timer = null;\n    emit('update:modelValue', value);\n  }, 300);\n}\nwatch(() => props.modelValue, value => {\n  draft.value = value;\n});\nonBeforeUnmount(cancelPending);\n</script>\n<template><input :value=\"draft\" @input=\"onInput\" /></template>\n\n// src/SearchPage.vue\n<script setup>\nimport { ref, watch, onBeforeUnmount } from 'vue';\nimport QueryBox from './QueryBox.vue';\nimport { loadRows } from './api';\nconst query = ref('seed');\nconst category = ref('all');\nconst page = ref(1);\nconst rows = ref([]);\nconst cache = new Map();\nlet generation = 0;\nasync function reload() {\n  const current = ++generation;\n  const params = { category: category.value, query: query.value, page: page.value };\n  if (params.query === '') { rows.value = []; return; }\n  const key = JSON.stringify([params.category, params.query, params.page]);\n  if (cache.has(key)) { rows.value = cache.get(key); return; }\n  const result = await loadRows(params);\n  if (current !== generation) { return; }\n  cache.set(key, result);\n  rows.value = result;\n}\nfunction reset() {\n  query.value = '';\n  category.value = 'all';\n  page.value = 1;\n  rows.value = [];\n}\nwatch([query, category, page], reload, { immediate: true });\nonBeforeUnmount(() => { generation += 1; });\n</script>\n<template>\n  <QueryBox v-model=\"query\" />\n  <select v-model=\"category\"><option value=\"all\">全部</option><option value=\"guide\">指南</option></select>\n  <button @click=\"page += 1\">下一页</button>\n  <button @click=\"reset\">重置</button>\n  <p>{{ category }} / {{ query }} / {{ page }}</p>\n  <ul><li v-for=\"row in rows\" :key=\"row\">{{ row }}</li></ul>\n</template>\n旧版的 QueryBox watcher 为：\nwatch(() => props.modelValue, value => {\n  cancelPending();\n  draft.value = value;\n});\n以上即全部差异与上下游，无其他绑定、包装层或持久订阅。未运行测试。",
+      "expected_behavior": [
+        "报告一个本次删除取消调用引入的 P2，定位 QueryBox 的 props watcher 变更，关联延迟 emit 和 SearchPage 的 v-model 回写。",
+        "给出可达交错：query 原为 seed，用户输入 next 安排定时器，300ms 内点击重置且 props watcher 已执行，旧 timer 随后仍 emit next，父级 query 和最终搜索结果被重新填入；旧版会在 prop 更新时取消该 timer。",
+        "解释 generation 保护的是请求结果有效性，延迟 emit 发起的是一次新的有效搜索；完整缓存键和卸载取消均不能维护仍挂载组件的重置语义。",
+        "合并输入回弹、重置失效和列表重新出现为一个根因，提出在外部 model 更新时取消或等效失效旧延迟写入；说明结论是静态可达，没有运行复现。"
+      ],
+      "must_not": [
+        "只检查请求乱序并因 generation 或 onBeforeUnmount 存在而判定没有缺陷。",
+        "把正确包含 category、query、page 的缓存键报为维度缺失，或把多个写入入口本身认定为缺陷。",
+        "把 reset 同步修改多个 ref 后的默认批量 watcher 执行误报为必然发起三次请求。",
+        "将重置后的多个表现拆成重复 finding，或要求改造全部状态管理而没有具体根因。"
+      ]
     }
   ]
 }

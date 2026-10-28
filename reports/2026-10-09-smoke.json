@@ -24,14 +24,14 @@
   ],
   "results": [
     {
-      "skill_name": "修改web代码",
+      "skill_name": "web-code-modifier",
       "eval_id": 3,
       "name": "完整修复请求归属",
       "task": "/root/eval_modifier",
       "source_sha256": {
-        "修改web代码/SKILL.md": "2219bd2eec89ec4bffe1c204a42d9558b7e0a29e05ef4e46b9f4a1526dfe264c",
-        "修改web代码/evals/evals.json": "672e890d6d36fb37204606d1e5ab71ecfebc96fa4eec65f3dae3b051a8a354da",
-        "修改web代码/references/change-checks.md": "d8b9f08db3898b717b6d43e4c6d818dea506db840d51778d5bdb36fb36c8fb5a"
+        "web-code-modifier/SKILL.md": "2219bd2eec89ec4bffe1c204a42d9558b7e0a29e05ef4e46b9f4a1526dfe264c",
+        "web-code-modifier/evals/evals.json": "672e890d6d36fb37204606d1e5ab71ecfebc96fa4eec65f3dae3b051a8a354da",
+        "web-code-modifier/references/change-checks.md": "d8b9f08db3898b717b6d43e4c6d818dea506db840d51778d5bdb36fb36c8fb5a"
       },
       "status": "pass",
       "output": "```js\n// 以下变量和函数均放在 setup 内，序号由当前组件实例独立维护。\nconst rows = ref([]);\nconst error = ref(null);\nconst loading = ref(false);\nlet latestSearchId = 0;\n\nasync function search(q) {\n  const searchId = ++latestSearchId;\n\n  loading.value = true;\n  error.value = null;\n\n  try {\n    const result = await api.search(q);\n    if (searchId === latestSearchId) {\n      rows.value = result;\n    }\n  } catch (e) {\n    if (searchId === latestSearchId) {\n      error.value = e;\n    }\n  } finally {\n    if (searchId === latestSearchId) {\n      loading.value = false;\n    }\n  }\n}\n```\n\n验证点（已静态检查；无运行环境，以下场景尚未执行）：\n\n- 先发 A 再发 B，B 等待期间 A 成功或失败：A 不修改 `rows`、`error`，`loading` 保持 `true`。\n- B 先成功，A 后成功或失败：保留 B 的结果，`error` 为 `null`，`loading` 为 `false`。\n- B 先失败，A 后成功或失败：保留 B 的错误，A 不更新列表或覆盖错误，`loading` 为 `false`。最新请求失败时沿用原逻辑，保留已有列表。\n- 连续搜索相同 `q`：每次调用都有独立序号，只有最后一次调用能提交状态。\n- 最新请求成功或失败均会关闭 `loading`；下一次调用立即开启 `loading` 并清除旧错误。",
@@ -78,14 +78,14 @@
       "stale_revision": true
     },
     {
-      "skill_name": "评审web代码",
+      "skill_name": "web-code-reviewer",
       "eval_id": 2,
       "name": "移除失效保护引入真实响应竞态",
       "task": "/root/eval_review",
       "source_sha256": {
-        "评审web代码/SKILL.md": "324ae71c829b187b80f7087742c6fbd66ae30348d0226c62697011bf2915bcab",
-        "评审web代码/evals/evals.json": "af7f43f501a87088e7c8e2593a57e37fc6672223eb9b3043b34508624a5767c0",
-        "评审web代码/references/review-checks.md": "1c97aede93baec2c7b67ee643082abadcb7cf7d0a1b1e359b858faca176fd123"
+        "web-code-reviewer/SKILL.md": "324ae71c829b187b80f7087742c6fbd66ae30348d0226c62697011bf2915bcab",
+        "web-code-reviewer/evals/evals.json": "af7f43f501a87088e7c8e2593a57e37fc6672223eb9b3043b34508624a5767c0",
+        "web-code-reviewer/references/review-checks.md": "1c97aede93baec2c7b67ee643082abadcb7cf7d0a1b1e359b858faca176fd123"
       },
       "status": "pass",
       "output": "[P2] 旧请求的响应会覆盖当前搜索结果 — `Search.jsx`，变更后的 `load(query).then(setRows)`\n\n用户连续输入时，可能出现“A 请求发出 → B 请求发出 → B 返回 → A 返回”的顺序。现在两次响应都会执行 `setRows`，因此输入框中的关键词仍为 B，列表却最终显示 A 的结果，并持续到下一次结果更新。每次请求最多 500ms 并不能避免这种乱序覆盖。\n\n旧版会在 `query` 变化时通过 cleanup 将旧 effect 的 `active` 设为 `false`，阻止旧响应写入；本次删除了这一保护，因而引入该缺陷。建议恢复原有失效标记与 cleanup，确保仅当前查询的响应可以更新列表。\n\n评审范围为提供的旧版组件与本次 effect 替换，依据已给出的 React 18.2.0 和 `load` 契约完成静态分析；未运行页面或测试。",
@@ -120,14 +120,14 @@
       "stale_revision": true
     },
     {
-      "skill_name": "溯源web代码",
+      "skill_name": "web-code-tracer",
       "eval_id": 4,
       "name": "没有响应时序时保留条件结论",
       "task": "/root/eval_tracer",
       "source_sha256": {
-        "溯源web代码/SKILL.md": "2c69c45d58390de00e5f19ea8c48b5be7551f88d1fcc549c43a30ff516194dbe",
-        "溯源web代码/evals/evals.json": "68461dec94a7897551adbd51c329ca17873ab97eaf08273e91d9512beadcba8a",
-        "溯源web代码/references/tracing-checks.md": "3f5176316b34a5eae5accbcafae6ac864cea722dd92158581abf2cbaea0126c7"
+        "web-code-tracer/SKILL.md": "2c69c45d58390de00e5f19ea8c48b5be7551f88d1fcc549c43a30ff516194dbe",
+        "web-code-tracer/evals/evals.json": "68461dec94a7897551adbd51c329ca17873ab97eaf08273e91d9512beadcba8a",
+        "web-code-tracer/references/tracing-checks.md": "3f5176316b34a5eae5accbcafae6ac864cea722dd92158581abf2cbaea0126c7"
       },
       "status": "pass",
       "output": "根据提供的代码，**两次请求及各自的赋值都完成后，`name` 一定是 `'A'` 或 `'B'`，但无法确定是哪一个，也不会仍是 `'初始'`。**\n\n两次 `load` 都会在 `await api(id)` 之后执行 `name = r.name`，因此**最后执行的赋值决定最终值**：\n\n- A 先赋值、B 后赋值 → 最终是 `'B'`。\n- B 先赋值、A 后赋值 → 最终是 `'A'`。\n\n`load('A'); load('B');` 只确定调用先后；`await` 暂停的是各自的 `load`，不会让这两次调用串行完成。题目没有给出完成顺序，所以不能断言最终一定是 A 或一定是 B。",

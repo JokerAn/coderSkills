@@ -136,6 +136,23 @@
         "要求安装其他 skill 或重复确认修改权限。",
         "继续使用 || 导致 0 被兜底。"
       ]
+    },
+    {
+      "id": 10,
+      "name": "跨组件缓存刷新与定时器观察时序",
+      "prompt": "只分析，不修改或加日志。下面是完整局部代码和已知事件顺序：Page.vue：<template><FilterInput v-model=\"query\" /><button @click=\"reset\">重置</button><p>{{ notice }}</p></template><script setup>import { ref } from 'vue'; import FilterInput from './FilterInput.vue'; const query = ref(''); const rows = ref([]); const notice = ref(''); const cache = new Map([['', ['缓存行']]]); let timer; function open() { const hit = cache.get(query.value); if (hit) { rows.value = hit; } refresh(); timer = setTimeout(() => { notice.value = rows.value.join(','); }, 500); } async function refresh() { const requested = query.value; const result = await api.list(requested); rows.value = result; } function reset() { query.value = ''; rows.value = []; }</script>。FilterInput.vue：<script setup>import { ref } from 'vue'; const props = defineProps({ modelValue: String }); const emit = defineEmits(['update:modelValue']); const draft = ref(props.modelValue || ''); let timer; function onInput(value) { draft.value = value; clearTimeout(timer); timer = setTimeout(() => { emit('update:modelValue', draft.value); }, 100); }</script><template><input :value=\"draft\" @input=\"onInput($event.target.value)\" /></template>。已知：t0 调用 open()，缓存命中，refresh() 发起 api.list('')，500ms 定时器注册；t1 子组件输入 'x'；t2（早于子计时器）Page 执行 reset()；t3 子计时器执行并发出 update:modelValue('x')，父级 query 变为 'x'；t4 旧的 api.list('') 返回 ['服务行'] 并完成 rows 写入；t5 500ms 定时器执行；t2 到 t5 没有其他写入。问：t0、t2、t3、t4、t5 读取 query/rows/notice 各是什么，哪些值来自缓存、用户回写或旧请求？为什么 t4 的结果与当前 query 不一致，为什么 t5 的 notice 读取的是执行时 rows？",
+      "expected_behavior": [
+        "沿 Page 的 query、rows、notice 与 FilterInput 的 draft/延迟 emit 区分对象和写入渠道，按给定事件顺序回答各观察阶段。",
+        "指出 t0 的 rows 先来自缓存但仍发起刷新；t2 reset 清空 query/rows，t3 延迟 emit 又把 query 改为 x；t4 旧请求仍写入服务行，形成与当前 query 不一致的状态。",
+        "指出 t5 定时器读取执行时的 rows 而非注册时快照，并把 notice 的值限定在给定顺序和无其他写入的范围内。",
+        "说明代码缺少把请求结果与当前 query 绑定的保护，也缺少 reset 对子组件延迟 emit 的失效处理；结论基于静态代码与题设时序，不声称运行验证。"
+      ],
+      "must_not": [
+        "把缓存命中解释为跳过 refresh，或把 t4 的旧请求当作当前 x 的请求。",
+        "按源码调用顺序忽略题设完成顺序，或把 t5 定时器说成读取注册时的旧 rows。",
+        "将 query、draft、rows、notice 视为同一个变量，或虚构未给出的请求/渲染结果。",
+        "修改代码、添加日志或要求先提供完整项目。"
+      ]
     }
   ]
 }

@@ -202,6 +202,21 @@
         "要求用户提供完整文件才肯补失败提示",
         "把用户改动当作错误并全部重来"
       ]
+    },
+    {
+      "id": 14,
+      "name": "跨组件延迟 v-model 回写覆盖父级重置",
+      "prompt": "请直接返回修正后的两个组件关键代码，不操作文件、不加依赖。目标：用户在 FilterInput 输入后，如果父组件在延迟回写前执行 reset，重置后的 query 必须保持为空；组件正常输入仍应把最新值回写给父级。当前完整局部代码：Parent.vue：<template><FilterInput v-model=\"query\" /><button @click=\"reset\">重置</button></template><script setup>import { ref } from 'vue'; import FilterInput from './FilterInput.vue'; const query = ref('seed'); function reset() { query.value = ''; }</script>。FilterInput.vue：<script setup>import { ref } from 'vue'; const props = defineProps({ modelValue: String }); const emit = defineEmits(['update:modelValue']); const draft = ref(props.modelValue || ''); let timer; function onInput(value) { draft.value = value; clearTimeout(timer); timer = setTimeout(() => { emit('update:modelValue', draft.value); }, 100); }</script><template><input :value=\"draft\" @input=\"onInput($event.target.value)\" /></template>。父级 reset 与子级输入都可能发生，FilterInput 在 reset 后仍挂载。请保留现有受控协议，修复延迟回写的归属和清理边界，并说明验证“输入 → reset → 延迟回写”和正常输入两条路径；不要顺手重写成 store、加全局标志或修改无关组件。",
+      "expected_behavior": [
+        "沿 prop、子组件 draft、延迟 emit、父级 v-model 回写追踪到 reset 后旧 draft 仍可覆盖 query 的根因。",
+        "在子组件边界使父级 prop 变化或组件清理能够使过期延迟回写失效，同时保留正常输入回写和现有 v-model 协议。",
+        "说明输入后 reset 再到计时器执行，以及正常输入的静态或运行验证路径；没有运行环境时不声称测试通过。"
+      ],
+      "must_not": [
+        "只在父组件 reset 后再加一次赋值，留下子组件迟到 emit 可重复覆盖的问题。",
+        "把 v-model 事件当作天然最新值，或只清除卸载而不处理仍挂载时的 reset。",
+        "新增全局请求序号、store、依赖或与本次问题无关的重构。"
+      ]
     }
   ]
 }

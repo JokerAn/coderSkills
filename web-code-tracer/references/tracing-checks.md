@@ -24,6 +24,17 @@ const title = response.title ?? cache.title ?? '未命名';
 要说某次来自缓存，需要知道当时两个字段的值；要说页面显示该值，还需看到消费点。
 “首次无缓存”只有在用户关心或代码确实涉及这一场景时才需要分析。
 
+## 多写入渠道与观察时间
+
+复杂页面先确认最终消费对象、实例和 key，再分开同一状态的写入：
+
+- `v-model` 展开 prop、草稿、更新事件和回写；reset、watch、store 或延迟 emit 可能在仍挂载时覆盖。
+- 缓存、刷新和编辑都可能写同一字段；分别确认读取、失效和 key，命中缓存不等于跳过刷新。
+- `setTimeout` / `setInterval` 区分捕获值与执行时读取；注册顺序不证明先于请求完成，并检查清理、停用和 reset。
+- `data/error/loading` 共享身份时一起解释，独立资源按 key 分开追踪。
+
+用最短交错表达一次观察：`初值/缓存 → 用户或父级写入 → 异步/timer → 消费`；无完成顺序或运行记录时，保留“若 A 最后写入则…”的条件结论。
+
 ## 异步覆盖：按观察时间解释
 
 以下是完整的局部状态逻辑，`renderText()` 表示调用时的字符串求值，不假设任何框架渲染机制：
@@ -61,7 +72,9 @@ let latest = 0;
 async function load(id) {
   const ticket = ++latest;
   const result = await getProfile(id);
-  if (ticket !== latest) return;
+  if (ticket !== latest) {
+    return;
+  }
   state.name = result.name;
 }
 ```
@@ -77,7 +90,9 @@ async function load(id) {
 const cache = { label: '上次的标题' };
 const state = { label: '初始标题' };
 function applyResponse(response) {
-  if (!response.ok) return;
+  if (!response.ok) {
+    return;
+  }
   state.label = response.label;
 }
 function labelText() { return state.label ?? '无标题'; }

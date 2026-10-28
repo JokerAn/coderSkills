@@ -1,12 +1,13 @@
 # coderSkills
 
-面向 **Vue 2 / Vue 3 / React Hooks** 的前端 AI 技能集，采用 Agent Skills 目录格式。三个 skill 分别负责修改、评审和溯源，也能按用户目标衔接执行。
+面向 **Vue 2 / Vue 3 / React Hooks** 的前端 AI 技能集，采用 Agent Skills 目录格式。四个 skill 分别负责修改、评审、溯源和可视化，也能按用户目标衔接执行。
 
 | Skill（中文显示名称） | 交付结果 | 典型请求 |
 | --- | --- | --- |
 | [web-code-modifier](web-code-modifier/SKILL.md) | 完成修改，解释原因，报告实际验证结果 | “帮我修这个”“改了没生效”“改 A 影响 B” |
 | [web-code-reviewer](web-code-reviewer/SKILL.md) | 按严重程度排序、有触发条件与证据的问题清单 | “review 一下”“这段能不能合并”“找回归” |
 | [web-code-tracer](web-code-tracer/SKILL.md) | 解释来源、路径、条件与覆盖关系，默认只读 | “这个值从哪来”“为什么不是接口”“怎么实现的” |
+| [mermaid-diagram](mermaid-diagram/SKILL.md) | 按阅读目标交付清晰、可核查的 Mermaid 图 | “画流程图”“画调用链”“把这段代码画清楚” |
 
 共同原则：**按风险选择深度，关键结论能核查，静态推导与运行观察分开报告**。简单问题直接回答或修改；缺少上下文时，先完成能独立确认的部分。
 
@@ -15,12 +16,14 @@
 - **减轻主流程**：常用指令放在 `SKILL.md`，框架陷阱、专项检查和示例放在 `references/` 按需读取。
 - **校准评审**：区分变更引入的问题与原有问题，依据实际影响分级。证据不足进入待确认项，不通过降低优先级混进 findings。
 - **校准溯源**：从消费点反推来源，按操作和时间段解释结果。无需为单行问题凑三条证据、四类来源或固定图表。
+- **收敛复杂链路**：跨组件或单页多写入时，先辨认状态归属、写入渠道、失效边界和观察时机；`v-model`、缓存、定时器与请求按实际交错追踪，简单问题不套复杂流程。
+- **改善读图与评审**：流程图以读者问题和真实落点组织层级；评审核对保护覆盖的写入入口与失效边界，避免把事件、数据和状态归属混成一条线。
 - **补全修复闭环**：检查真实契约、用户已有改动，以及异步成功、失败和 `finally` 的状态归属；验证只报告实际执行结果。
 - **抑制防御性膨胀**：明确“默认不写什么”——卸载判断、请求序号/取消、转发变量、全量兜底等，只在用户已报告该症状、需求要求或既有机制必须随之调整时才写。
 - **顺带发现按级处理**：P0/P1 当次修完；P2（真实但不在目标内、正常使用不一定触发）不写进代码，交付时列一条；P3 默认不提。跨文件改动先决定改共享层还是调用点，不在共享函数里加模式开关。
 - **减少环境假设**：框架版本以依赖和配置为准，MCP 工具经发现后按需使用；没有特定工具也可以完成任务。
 - **可持续验证**：每个 skill 配有包含输入、预期行为和禁止行为的评估用例，仓库提供无第三方 Python 依赖的结构校验工具。
-- **统一证据术语**：静态事实、条件结论、运行确认三档命名在三个 skill 中保持一致，便于 tracer 的结论直接交给 modifier 复用。
+- **统一证据术语**：静态事实、条件结论、运行确认三档命名在三个前端 skill 中保持一致，便于 tracer 的结论直接交给 modifier 复用。
 - **版本可追溯**：每个 `SKILL.md` 带语义化 `version`；校验器提供 `--manifest` 生成文件摘要，`--report` 比对评测记录——内容一改、过期的评测记录即校验失败，不会静默冒充当前版本的结论。
 
 ## 目录结构
@@ -45,6 +48,11 @@ coderSkills/
 │   ├── agents/openai.yaml
 │   ├── references/tracing-checks.md
 │   └── evals/evals.json
+├── mermaid-diagram/
+│   ├── SKILL.md
+│   ├── agents/openai.yaml
+│   ├── references/
+│   └── evals/evals.json
 └── scripts/
     ├── show-skill.sh
     ├── find-symbol.sh
@@ -55,9 +63,9 @@ coderSkills/
 
 ## 安装与任务衔接
 
-将需要的 **整个 skill 目录** 放入宿主配置的技能目录，保留 `SKILL.md`、`agents/` 与 `references/` 的相对路径。`evals/` 用于维护评估，建议一起保留。三个 skill 可以独立安装，不依赖仓库根目录脚本、其他 skill 或特定 MCP。
+将需要的 **整个 skill 目录** 放入宿主配置的技能目录，保留 `SKILL.md`、`agents/` 与 `references/` 的相对路径。`evals/` 用于维护评估，建议一起保留。四个 skill 可以独立安装，不依赖仓库根目录脚本、其他 skill 或特定 MCP。
 
-三个 skill 的目录名、`SKILL.md` 中的 `name` 和 `agents/openai.yaml` 中的 `interface.display_name` 统一使用中文名称：“web-code-modifier”“web-code-reviewer”“web-code-tracer”。可使用 `$web-code-modifier`、`$web-code-reviewer`、`$web-code-tracer` 显式调用。升级安装时移除旧版英文名称目录，再复制中文名称目录；若界面未刷新，重启 Codex 后查看技能列表。
+四个 skill 的目录名、`SKILL.md` 中的 `name` 和 `agents/openai.yaml` 中的 `interface.display_name` 统一使用中文名称：“web-code-modifier”“web-code-reviewer”“web-code-tracer”“mermaid-diagram”。可使用 `$web-code-modifier`、`$web-code-reviewer`、`$web-code-tracer`、`$mermaid-diagram` 显式调用。升级安装时移除旧版英文名称目录，再复制中文名称目录；若界面未刷新，重启 Codex 后查看技能列表。
 
 `SKILL.md` 的 YAML frontmatter 提供 `name` 和 `description`；宿主通常用它判断何时加载正文。实际自动发现路径、是否需重新加载及工具权限由宿主决定。引用资料只在相关任务中读取。
 
